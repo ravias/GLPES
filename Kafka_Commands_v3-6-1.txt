@@ -1,0 +1,192 @@
+# Connect to your EMR cluster master note with putty if you are using Windows otherwise with ssh
+# Download Kafka tar file
+
+$ wget https://archive.apache.org/dist/kafka/3.6.1/kafka_2.12-3.6.1.tgz
+
+# Extract files from the tar archive
+$ tar -zxvf kafka_2.12-3.6.1.tgz
+
+# Rename the directory
+$ mv kafka_2.12-3.6.1 kafka
+
+$ cd kafka
+
+# Check config files using the commands
+$ ls -l config
+$ cat config/zookeeper.properties
+$ cat config/server.properties
+
+===================================================================================================
+
+# Start Zookeeper service and Kafka service with the command below which run them in the background
+bin/zookeeper-server-start.sh config/zookeeper.properties > /tmp/zkservinit.log 2>&1 &
+bin/kafka-server-start.sh config/server.properties > /tmp/kfservinit.log 2>&1 &
+
+# List any existing Kafka topics
+bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+
+# Create your first Kafka topic
+bin/kafka-topics.sh --create --topic first-topic --bootstrap-server localhost:9092
+
+# List topics command should show the newly created topic
+bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+
+# Get a description of our Kafka topic 
+bin/kafka-topics.sh --describe --topic first-topic --bootstrap-server localhost:9092
+
+# Run console producer which will take the lines entered in the standard input (stdin which is the keyboard)
+# and publishes them on our topic
+bin/kafka-console-producer.sh --topic first-topic --bootstrap-server localhost:9092
+>This is a message
+>This is another message
+
+# Use control+C to terminate this producer
+
+# Run a console consumer which will take the lines published on our topic
+# and displays them on the standard output (stdout which is the console/screen)
+bin/kafka-console-consumer.sh --topic first-topic --from-beginning --bootstrap-server localhost:9092
+
+# We can run more than one consumer and read from the same topic.
+# Use control+C to terminate this and terminate this consumer
+# Now run one more console consumer as shown below
+bin/kafka-console-consumer.sh --topic first-topic --bootstrap-server localhost:9092
+
+# The second consumer run with the above command does not display anything
+# This is because we have not given the argument --from-beginning
+# We can close the consumers by pressing Control+C (^C)
+
+Offset
+------
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic first-topic --from-beginning --consumer-property group.id=my-group1
+# The above will display all messages from the beginning
+# Close this consumer using control+C.
+# Produce some messages.
+# Run the same consumer comand again (given below for ease of use).
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic first-topic --from-beginning --consumer-property group.id=my-group1
+# We will see that beginning messages are not shown because offset is set to last message that was read
+# Close this consumer. Produce some messages
+# We will now run the consumer
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic first-topic --group my-group1
+# Irrespective of giving or not giving the option --from-beginning it will read from the last offset
+# Terminate this consumer using control+C
+
+Consumer Group Command
+----------------------
+# Give the following command to list the consumer groups:
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
+
+# Give the following command to describe the consumer groups:
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group my-group1
+# While a consumer from this group is not running we will see the message as such.
+# When one or two consumers from this group are running then we will be able to watch the consumers
+# Lag can be seen as well
+# We can produce few more messages to the topic
+# And then run the above groups command to describe my-group1
+# We will now see current-offset at the last message consumed, log-end off set the number of last produced message and lag as the difference between the two.
+--------------
+
+Consumer Group
+--------------
+$ bin/kafka-topics.sh --create --topic second-topic --replication-factor 1 --partitions 3 --bootstrap-server localhost:9092 
+# Make sure topic is created with 3 partitions
+
+# List topics command should show the newly created topic
+$ bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+
+# Get a description of our Kafka topic
+$ bin/kafka-topics.sh --describe --topic second-topic --bootstrap-server localhost:9092
+
+# Run a consumer assigning it to a group my-group2
+# Adding an & sign at the end of the command runs it in the background
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic second-topic --consumer-property group.id=my-group2 &
+
+# Run another consumer assigning it to the same group my-group2
+# Adding an & sign at the end of the command runs it in the background
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic second-topic --consumer-property group.id=my-group2 &
+
+# Run one more (third) consumer assigning it to the same group my-group2
+# Adding an & sign at the end of the command runs it in the background
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic second-topic --consumer-property group.id=my-group2 &
+
+# Now if we produce messages from producer in the foregound.
+
+bin/kafka-console-producer.sh --topic second-topic --bootstrap-server localhost:9092
+>message1
+>message2
+>message3
+>message4
+>message5
+>message6
+>event1
+>event2
+>event3
+>event4
+>record1
+>record2
+
+# Now terminate the producer
+
+# We will see that the messages are partitioned when we give the command below
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group my-group2
+
+# We can get one of the consumers to foreground with the command below
+$ fg
+# And terminate it using Control+C
+
+# We can give more messages on producer
+# We will notice that the messages are partitioned between existing consumers
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group my-group2
+
+# We can get the remaining two consumers one by one to foreground with the command below
+$ fg
+# And terminate them one by one using Control+C
+
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group my-group2 --topic second-topic --reset-offsets --shift-by -3 --execute
+
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group my-group2 --topic second-topic --reset-offsets --to-earliest --execute
+
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group my-group2 --topic second-topic --reset-offsets --to-datetime 2025-03-23T19:26:00.000 --execute
+
+=========================================================
+
+Producer with keys
+------------------
+
+bin/kafka-topics.sh --create --topic third-topic --replication-factor 1 --partitions 3 --bootstrap-server localhost:9092
+
+# Note that if a topic is not present yet, kafka-console-producer would create it with default replication and partition values which is 1.
+bin/kafka-console-producer.sh --topic third-topic --bootstrap-server localhost:9092 --property parse.key=true --property key.separator=,
+> i1,iv1
+> i1,iv2
+> i1,iv3
+> j1,jv1
+> j1,jv2
+> k1,kv1
+
+Consumer with keys
+------------------
+# The consumer with the command below prints the values of each message
+$ bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic third-topic --from-beginning --property key.separator=, --group my-group3 &
+
+# If we need the key also to printed we can specify as below
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic third-topic --from-beginning --property print.key=true --property key.separator=, --group my-group3 &
+
+# We will see that the messages are partitioned based on the key when we give the command below
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group my-group3
+===================
+
+# We can delete a topic if required using the command below.
+$ bin/kafka-topics.sh --delete --topic first-topic --bootstrap-server localhost:9092
+
+# List available topics to verify
+$ bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+--------------------------------------------------------------
+
+# We can stop kafka server first and then zookeeper server next using the commands below.
+
+bin/kafka-server-stop.sh config/server.properties
+bin/zookeeper-server-stop.sh config/zookeeper.properties
+========================================================
+
+# For Kafka-Spark Structured Streaming Alert example you need to create a topic as shown below before running the Python Kafka producer and the spark-submit command to execute Alert application.
+bin/kafka-topics.sh --create --topic stock-topic --bootstrap-server localhost:9092
